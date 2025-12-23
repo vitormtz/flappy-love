@@ -1,0 +1,13 @@
+## This file is a template for local.properties
+# Copy this file to local.properties and fill in your actual values
+#
+# This file should *NOT* be checked into Version Control Systems,
+# as it contains sensitive information specific to your local configuration.
+
+# Location of the Android SDK (automatically filled by Android Studio)
+sdk.dir=/path/to/your/android/sdk
+
+# Lovense Developer Token
+# Get your token from: https://developer.lovense.com/
+# IMPORTANT: Never commit your actual token to Git!
+lovense.developer.token=YOUR_LOVENSE_DEVELOPER_TOKEN_HERE
