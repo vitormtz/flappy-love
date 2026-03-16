@@ -33,6 +33,18 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private ScoreManager scoreManager;
     private DeviceController deviceController;
 
+    private int currentVibrationLevel;
+    private Paint barBgPaint;
+    private Paint barFillPaint;
+    private Paint barBorderPaint;
+    private Paint barTextPaint;
+
+    private static final float BAR_WIDTH = 40f;
+    private static final float BAR_HEIGHT = 400f;
+    private static final float BAR_MARGIN_RIGHT = 30f;
+    private static final float BAR_MARGIN_TOP = 200f;
+    private static final int MAX_VIBRATION_LEVEL = 20;
+
     public GameView(Context context, AttributeSet attrs) {
         super(context, attrs);
         getHolder().addCallback(this);
@@ -66,6 +78,23 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         gameOverPaint.setTextAlign(Paint.Align.CENTER);
 
         scoreManager = new ScoreManager(context);
+
+        currentVibrationLevel = 0;
+
+        barBgPaint = new Paint();
+        barBgPaint.setColor(0x80000000);
+
+        barFillPaint = new Paint();
+
+        barBorderPaint = new Paint();
+        barBorderPaint.setColor(Color.WHITE);
+        barBorderPaint.setStyle(Paint.Style.STROKE);
+        barBorderPaint.setStrokeWidth(3f);
+
+        barTextPaint = new Paint();
+        barTextPaint.setColor(Color.WHITE);
+        barTextPaint.setTextSize(28);
+        barTextPaint.setTextAlign(Paint.Align.CENTER);
     }
 
     public void setDeviceController(DeviceController controller) {
@@ -79,9 +108,6 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                 resetGame();
             } else {
                 bird.jump();
-                if (deviceController != null) {
-                    deviceController.vibrate(8, 50);
-                }
             }
             return true;
         }
@@ -112,9 +138,6 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             if (pipe.isPassed(bird.getBounds().left)) {
                 pipe.setScored(true);
                 score++;
-                if (deviceController != null) {
-                    deviceController.vibrate(12, 100);
-                }
             }
 
             if (pipe.isOffScreen()) {
@@ -126,6 +149,23 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             spawnPipe();
         }
         nextPipeX -= Constants.PIPE_VELOCITY * deltaTime;
+
+        updateVibration();
+    }
+
+    private void updateVibration() {
+        float birdY = bird.getY();
+        float floorY = Constants.SCREEN_HEIGHT - Constants.FLOOR_HEIGHT;
+
+        float normalized = 1f - (birdY / floorY);
+        normalized = Math.min(Math.max(normalized, 0f), 1f);
+        currentVibrationLevel = Math.round(normalized * MAX_VIBRATION_LEVEL);
+
+        if (deviceController != null && currentVibrationLevel > 0) {
+            deviceController.vibrate(currentVibrationLevel, 0);
+        } else if (deviceController != null) {
+            deviceController.stopVibration();
+        }
     }
 
     public void render(Canvas canvas) {
@@ -146,11 +186,50 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
         canvas.drawText("Score: " + score, Constants.SCREEN_WIDTH / 2f, 150, textPaint);
 
+        drawVibrationBar(canvas);
+
         if (gameOver) {
             canvas.drawText("GAME OVER", Constants.SCREEN_WIDTH / 2f, Constants.SCREEN_HEIGHT / 2f - 100, gameOverPaint);
             canvas.drawText("High Score: " + scoreManager.getHighScore(), Constants.SCREEN_WIDTH / 2f, Constants.SCREEN_HEIGHT / 2f + 100, textPaint);
             canvas.drawText("Tap to restart", Constants.SCREEN_WIDTH / 2f, Constants.SCREEN_HEIGHT / 2f + 250, textPaint);
         }
+    }
+
+    private void drawVibrationBar(Canvas canvas) {
+        if (deviceController == null || !deviceController.isConnected()) return;
+
+        float barX = Constants.SCREEN_WIDTH - BAR_WIDTH - BAR_MARGIN_RIGHT;
+        float barY = BAR_MARGIN_TOP;
+
+        canvas.drawRect(barX, barY, barX + BAR_WIDTH, barY + BAR_HEIGHT, barBgPaint);
+
+        float fillRatio = currentVibrationLevel / (float) MAX_VIBRATION_LEVEL;
+        float fillHeight = BAR_HEIGHT * fillRatio;
+        float fillTop = barY + BAR_HEIGHT - fillHeight;
+
+        int colorGreen = 0xFF4CAF50;
+        int colorYellow = 0xFFFFEB3B;
+        int colorRed = 0xFFF44336;
+
+        if (fillRatio <= 0.5f) {
+            float t = fillRatio * 2f;
+            int r = (int) (Color.red(colorGreen) + t * (Color.red(colorYellow) - Color.red(colorGreen)));
+            int g = (int) (Color.green(colorGreen) + t * (Color.green(colorYellow) - Color.green(colorGreen)));
+            int b = (int) (Color.blue(colorGreen) + t * (Color.blue(colorYellow) - Color.blue(colorGreen)));
+            barFillPaint.setColor(Color.rgb(r, g, b));
+        } else {
+            float t = (fillRatio - 0.5f) * 2f;
+            int r = (int) (Color.red(colorYellow) + t * (Color.red(colorRed) - Color.red(colorYellow)));
+            int g = (int) (Color.green(colorYellow) + t * (Color.green(colorRed) - Color.green(colorYellow)));
+            int b = (int) (Color.blue(colorYellow) + t * (Color.blue(colorRed) - Color.blue(colorYellow)));
+            barFillPaint.setColor(Color.rgb(r, g, b));
+        }
+
+        canvas.drawRect(barX, fillTop, barX + BAR_WIDTH, barY + BAR_HEIGHT, barFillPaint);
+        canvas.drawRect(barX, barY, barX + BAR_WIDTH, barY + BAR_HEIGHT, barBorderPaint);
+
+        float textX = barX + BAR_WIDTH / 2f;
+        canvas.drawText(currentVibrationLevel + "/" + MAX_VIBRATION_LEVEL, textX, barY + BAR_HEIGHT + 35, barTextPaint);
     }
 
     private void spawnPipe() {
@@ -175,6 +254,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         nextPipeX = Constants.SCREEN_WIDTH;
         score = 0;
         gameOver = false;
+        currentVibrationLevel = 0;
     }
 
     @Override
