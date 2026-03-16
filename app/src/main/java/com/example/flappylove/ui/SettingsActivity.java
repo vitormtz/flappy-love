@@ -1,6 +1,8 @@
 package com.example.flappylove.ui;
 
 import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -11,7 +13,8 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AlertDialog;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -26,7 +29,6 @@ import com.lovense.sdklibrary.Lovense;
 
 public class SettingsActivity extends AppCompatActivity {
     private static final int BLUETOOTH_PERMISSION_REQUEST = 100;
-    private static final int LOCATION_PERMISSION_REQUEST = 101;
     private ScoreManager scoreManager;
     private Switch lovenseSwitch;
     private TextView statusText;
@@ -36,6 +38,16 @@ public class SettingsActivity extends AppCompatActivity {
     private Handler statusHandler = new Handler(Looper.getMainLooper());
 
     private FlappyLoveApplication app;
+
+    private final ActivityResultLauncher<Intent> bluetoothEnableLauncher =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() == RESULT_OK) {
+                enableLovenseMode();
+            } else {
+                lovenseSwitch.setChecked(false);
+                Toast.makeText(this, "Bluetooth is required for Lovense Mode", Toast.LENGTH_SHORT).show();
+            }
+        });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,7 +73,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         lovenseSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
-                showConsentDialog();
+                handleLovenseEnable();
             } else {
                 scoreManager.setLovenseEnabled(false);
                 app.releaseDeviceController();
@@ -75,10 +87,10 @@ public class SettingsActivity extends AppCompatActivity {
                 Toast.makeText(this, "Please enable Lovense Mode first", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (checkAllPermissions()) {
+            if (checkBluetoothPermissions()) {
                 connectToDevice();
             } else {
-                requestAllPermissions();
+                requestBluetoothPermissions();
             }
         });
 
@@ -105,6 +117,36 @@ public class SettingsActivity extends AppCompatActivity {
 
         updateConnectionStatus();
         startStatusUpdateTimer();
+    }
+
+    private void handleLovenseEnable() {
+        if (!checkBluetoothPermissions()) {
+            requestBluetoothPermissions();
+            return;
+        }
+
+        if (!isBluetoothEnabled()) {
+            promptEnableBluetooth();
+            return;
+        }
+
+        enableLovenseMode();
+    }
+
+    private void enableLovenseMode() {
+        scoreManager.setLovenseEnabled(true);
+        updateConnectionStatus();
+        connectToDevice();
+    }
+
+    private boolean isBluetoothEnabled() {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        return adapter != null && adapter.isEnabled();
+    }
+
+    private void promptEnableBluetooth() {
+        Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        bluetoothEnableLauncher.launch(enableBtIntent);
     }
 
     private void connectToDevice() {
@@ -148,52 +190,12 @@ public class SettingsActivity extends AppCompatActivity {
         }, 2000);
     }
 
-    private void showConsentDialog() {
-        new AlertDialog.Builder(this)
-            .setTitle("Enable Lovense Mode?")
-            .setMessage("This will allow the app to connect to your Lovense device and control it during gameplay. " +
-                       "Do you consent to this functionality?")
-            .setPositiveButton("I Consent", (dialog, which) -> {
-                if (checkBluetoothPermissions()) {
-                    scoreManager.setLovenseEnabled(true);
-                    Toast.makeText(this, "Lovense Mode enabled", Toast.LENGTH_SHORT).show();
-                } else {
-                    requestBluetoothPermissions();
-                }
-            })
-            .setNegativeButton("Cancel", (dialog, which) -> {
-                lovenseSwitch.setChecked(false);
-            })
-            .setOnCancelListener(dialog -> {
-                lovenseSwitch.setChecked(false);
-            })
-            .show();
-    }
-
-    private boolean checkAllPermissions() {
-        return checkBluetoothPermissions() && checkLocationPermissions();
-    }
-
     private boolean checkBluetoothPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             return ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
                    ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED;
-        } else {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED &&
-                   ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED;
         }
-    }
-
-    private boolean checkLocationPermissions() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void requestAllPermissions() {
-        if (!checkBluetoothPermissions()) {
-            requestBluetoothPermissions();
-        } else if (!checkLocationPermissions()) {
-            requestLocationPermissions();
-        }
+        return true;
     }
 
     private void requestBluetoothPermissions() {
@@ -201,17 +203,7 @@ public class SettingsActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this,
                 new String[]{Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN},
                 BLUETOOTH_PERMISSION_REQUEST);
-        } else {
-            ActivityCompat.requestPermissions(this,
-                new String[]{Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN},
-                BLUETOOTH_PERMISSION_REQUEST);
         }
-    }
-
-    private void requestLocationPermissions() {
-        ActivityCompat.requestPermissions(this,
-            new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
-            LOCATION_PERMISSION_REQUEST);
     }
 
     @Override
@@ -219,25 +211,14 @@ public class SettingsActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == BLUETOOTH_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (!checkLocationPermissions()) {
-                    requestLocationPermissions();
+                if (!isBluetoothEnabled()) {
+                    promptEnableBluetooth();
                 } else {
-                    scoreManager.setLovenseEnabled(true);
-                    Toast.makeText(this, "Lovense Mode enabled", Toast.LENGTH_SHORT).show();
-                    updateConnectionStatus();
+                    enableLovenseMode();
                 }
             } else {
                 lovenseSwitch.setChecked(false);
                 Toast.makeText(this, "Bluetooth permissions required for Lovense Mode", Toast.LENGTH_SHORT).show();
-            }
-        } else if (requestCode == LOCATION_PERMISSION_REQUEST) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                scoreManager.setLovenseEnabled(true);
-                Toast.makeText(this, "Lovense Mode enabled", Toast.LENGTH_SHORT).show();
-                updateConnectionStatus();
-            } else {
-                lovenseSwitch.setChecked(false);
-                Toast.makeText(this, "Location permissions required for Bluetooth scanning", Toast.LENGTH_SHORT).show();
             }
         }
     }
