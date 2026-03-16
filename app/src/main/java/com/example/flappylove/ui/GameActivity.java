@@ -6,16 +6,13 @@ import android.view.WindowManager;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.flappylove.FlappyLoveApplication;
 import com.example.flappylove.device.DeviceController;
-import com.example.flappylove.device.LovenseController;
-import com.example.flappylove.device.NoOpController;
 import com.example.flappylove.game.GameView;
-import com.example.flappylove.util.ScoreManager;
 
 public class GameActivity extends AppCompatActivity {
     private GameView gameView;
     private DeviceController deviceController;
-    private ScoreManager scoreManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,14 +25,8 @@ public class GameActivity extends AppCompatActivity {
         gameView = new GameView(this);
         setContentView(gameView);
 
-        scoreManager = new ScoreManager(this);
-
-        if (scoreManager.isLovenseEnabled()) {
-            deviceController = new LovenseController(this);
-            deviceController.connect();
-        } else {
-            deviceController = new NoOpController();
-        }
+        FlappyLoveApplication app = (FlappyLoveApplication) getApplication();
+        deviceController = app.getDeviceController();
 
         gameView.setDeviceController(deviceController);
     }
@@ -58,8 +49,5 @@ public class GameActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (deviceController != null) {
-            deviceController.release();
-        }
     }
 }

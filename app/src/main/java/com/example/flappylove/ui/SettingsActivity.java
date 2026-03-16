@@ -16,9 +16,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.example.flappylove.FlappyLoveApplication;
 import com.example.flappylove.R;
 import com.example.flappylove.device.DeviceController;
 import com.example.flappylove.device.LovenseController;
+import com.example.flappylove.device.NoOpController;
 import com.example.flappylove.util.ScoreManager;
 import com.lovense.sdklibrary.Lovense;
 
@@ -27,18 +29,20 @@ public class SettingsActivity extends AppCompatActivity {
     private static final int LOCATION_PERMISSION_REQUEST = 101;
     private ScoreManager scoreManager;
     private Switch lovenseSwitch;
-    private DeviceController deviceController;
     private TextView statusText;
     private Button connectButton;
     private Button disconnectButton;
     private Button testButton;
     private Handler statusHandler = new Handler(Looper.getMainLooper());
 
+    private FlappyLoveApplication app;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
 
+        app = (FlappyLoveApplication) getApplication();
         scoreManager = new ScoreManager(this);
 
         lovenseSwitch = findViewById(R.id.switchLovense);
@@ -51,9 +55,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         infoText.setText("Enable Lovense Mode to connect to a Lovense Lush 3 device. " +
                         "The device will respond to game events with haptic feedback.\n\n" +
-                        "- Jump: Light vibration (Level 8)\n" +
-                        "- Score: Medium vibration (Level 12)\n" +
-                        "- Game Over: Stop vibration");
+                        "The vibration intensity changes based on the bird's position relative to the pipe gap.");
 
         lovenseSwitch.setChecked(scoreManager.isLovenseEnabled());
 
@@ -62,10 +64,7 @@ public class SettingsActivity extends AppCompatActivity {
                 showConsentDialog();
             } else {
                 scoreManager.setLovenseEnabled(false);
-                if (deviceController != null) {
-                    deviceController.release();
-                    deviceController = null;
-                }
+                app.releaseDeviceController();
                 updateConnectionStatus();
                 Toast.makeText(this, "Lovense Mode disabled", Toast.LENGTH_SHORT).show();
             }
@@ -84,27 +83,25 @@ public class SettingsActivity extends AppCompatActivity {
         });
 
         disconnectButton.setOnClickListener(v -> {
-            if (deviceController != null) {
-                deviceController.disconnect();
+            DeviceController controller = app.getDeviceController();
+            if (controller != null) {
+                controller.disconnect();
                 Toast.makeText(this, "Disconnecting...", Toast.LENGTH_SHORT).show();
                 statusHandler.postDelayed(this::updateConnectionStatus, 1000);
             }
         });
 
         testButton.setOnClickListener(v -> {
-            if (deviceController != null && deviceController.isConnected()) {
+            DeviceController controller = app.getDeviceController();
+            if (controller != null && controller.isConnected()) {
                 Toast.makeText(this, "Testing vibration...", Toast.LENGTH_SHORT).show();
-                deviceController.vibrate(15, 500);
+                controller.vibrate(15, 500);
             } else {
                 Toast.makeText(this, "Please connect to device first", Toast.LENGTH_SHORT).show();
             }
         });
 
         backButton.setOnClickListener(v -> finish());
-
-        if (scoreManager.isLovenseEnabled()) {
-            deviceController = new LovenseController(this);
-        }
 
         updateConnectionStatus();
         startStatusUpdateTimer();
@@ -114,16 +111,19 @@ public class SettingsActivity extends AppCompatActivity {
         Lovense.getInstance(getApplication()).setDeveloperToken(com.example.flappylove.BuildConfig.LOVENSE_DEVELOPER_TOKEN);
         Lovense.getInstance(getApplication()).setLogEnable(true);
 
-        if (deviceController == null) {
-            deviceController = new LovenseController(this);
+        DeviceController controller = app.getDeviceController();
+        if (controller instanceof NoOpController) {
+            controller = new LovenseController(this);
+            app.setDeviceController(controller);
         }
         Toast.makeText(this, "Searching for devices...", Toast.LENGTH_SHORT).show();
-        deviceController.connect();
+        controller.connect();
         statusHandler.postDelayed(this::updateConnectionStatus, 2000);
     }
 
     private void updateConnectionStatus() {
-        if (deviceController != null && deviceController.isConnected()) {
+        DeviceController controller = app.getDeviceController();
+        if (controller != null && controller.isConnected()) {
             statusText.setText("Status: Connected");
             statusText.setTextColor(0xFF4CAF50);
             connectButton.setEnabled(false);
@@ -246,8 +246,5 @@ public class SettingsActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         statusHandler.removeCallbacksAndMessages(null);
-        if (deviceController != null) {
-            deviceController.stopVibration();
-        }
     }
 }
