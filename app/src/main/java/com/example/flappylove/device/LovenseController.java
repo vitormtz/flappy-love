@@ -1,14 +1,11 @@
 package com.example.flappylove.device;
 
-import android.Manifest;
 import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import androidx.core.content.ContextCompat;
 
 import com.lovense.sdklibrary.Lovense;
 import com.lovense.sdklibrary.LovenseToy;
@@ -50,7 +47,6 @@ public class LovenseController implements DeviceController {
 
         Log.d(TAG, "Starting search for Lovense toys...");
         Log.d(TAG, "Bluetooth enabled: " + isBluetoothEnabled());
-        Log.d(TAG, "Location permission granted: " + hasLocationPermission());
 
         Application app = (Application) context.getApplicationContext();
 
@@ -271,14 +267,4 @@ public class LovenseController implements DeviceController {
         }
     }
 
-    private boolean hasLocationPermission() {
-        try {
-            return ContextCompat.checkSelfPermission(context,
-                Manifest.permission.ACCESS_FINE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED;
-        } catch (Exception e) {
-            Log.e(TAG, "Error checking location permission: " + e.getMessage());
-            return false;
-        }
-    }
 }
