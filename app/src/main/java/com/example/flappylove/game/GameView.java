@@ -157,9 +157,11 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         float birdY = bird.getY();
         float floorY = Constants.SCREEN_HEIGHT - Constants.FLOOR_HEIGHT;
 
-        float normalized = 1f - (birdY / floorY);
+        float topLimit = Constants.PIPE_MIN_HEIGHT;
+        float bottomLimit = floorY - Constants.PIPE_MIN_HEIGHT;
+        float normalized = 1f - ((birdY - topLimit) / (bottomLimit - topLimit));
         normalized = Math.min(Math.max(normalized, 0f), 1f);
-        currentVibrationLevel = Math.round(normalized * MAX_VIBRATION_LEVEL);
+        currentVibrationLevel = Math.max(1, Math.round(normalized * MAX_VIBRATION_LEVEL));
 
         if (deviceController != null && currentVibrationLevel > 0) {
             deviceController.vibrate(currentVibrationLevel, 0);
