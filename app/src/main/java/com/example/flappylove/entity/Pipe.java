@@ -59,4 +59,8 @@ public class Pipe {
     public float getX() {
         return x;
     }
+
+    public float getGapY() {
+        return gapY;
+    }
 }
