@@ -29,6 +29,7 @@ public class LovenseController implements DeviceController {
     private boolean isConnected = false;
     private boolean isSearching = false;
     private long lastVibrateTime = 0;
+    private int lastSentLevel = -1;
     private static final long VIBRATE_THROTTLE_MS = 100;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private List<LovenseToy> foundToys = new ArrayList<>();
@@ -194,23 +195,29 @@ public class LovenseController implements DeviceController {
             return;
         }
 
+        int level = Math.min(Math.max(intensity, 0), 20);
+
+        if (level == lastSentLevel) {
+            return;
+        }
+
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastVibrateTime < VIBRATE_THROTTLE_MS) {
             return;
         }
         lastVibrateTime = currentTime;
-
-        int level = Math.min(Math.max(intensity, 0), 20);
+        lastSentLevel = level;
 
         try {
             Application app = (Application) context.getApplicationContext();
-            Log.d(TAG, "Sending vibrate command with level: " + level + " for " + durationMs + "ms");
+            Log.d(TAG, "Sending vibrate command with level: " + level);
 
             Lovense.getInstance(app).sendCommand(toyId, CommandType.VIBRATE, level);
 
             if (durationMs > 0) {
                 mainHandler.postDelayed(() -> {
                     if (isConnected && toyId != null) {
+                        lastSentLevel = 0;
                         Lovense.getInstance(app).sendCommand(toyId, CommandType.VIBRATE, 0);
                     }
                 }, durationMs);
@@ -225,6 +232,12 @@ public class LovenseController implements DeviceController {
         if (!isConnected || toyId == null) {
             return;
         }
+
+        if (lastSentLevel == 0) {
+            return;
+        }
+
+        lastSentLevel = 0;
 
         try {
             Application app = (Application) context.getApplicationContext();
