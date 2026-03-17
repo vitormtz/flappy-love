@@ -23,6 +23,11 @@ public class NoOpController implements DeviceController {
     }
 
     @Override
+    public boolean isSearching() {
+        return false;
+    }
+
+    @Override
     public void release() {
     }
 }

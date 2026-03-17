@@ -174,6 +174,14 @@ public class LovenseController implements DeviceController {
     public void disconnect() {
         Log.d(TAG, "Disconnecting from toy");
 
+        try {
+            Application app = (Application) context.getApplicationContext();
+            Lovense.getInstance(app).stopSearching();
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping search: " + e.getMessage());
+        }
+        isSearching = false;
+
         if (connectedToy != null) {
             stopVibration();
             connectedToy = null;
@@ -248,6 +256,11 @@ public class LovenseController implements DeviceController {
     @Override
     public boolean isConnected() {
         return isConnected && connectedToy != null;
+    }
+
+    @Override
+    public boolean isSearching() {
+        return isSearching;
     }
 
     @Override

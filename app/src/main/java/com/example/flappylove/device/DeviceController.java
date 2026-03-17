@@ -6,5 +6,6 @@ public interface DeviceController {
     void vibrate(int intensity, int durationMs);
     void stopVibration();
     boolean isConnected();
+    boolean isSearching();
     void release();
 }
