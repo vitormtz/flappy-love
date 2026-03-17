@@ -18,6 +18,9 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.example.flappylove.FlappyLoveApplication;
 import com.example.flappylove.R;
@@ -52,13 +55,13 @@ public class SettingsActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        hideSystemBars();
         setContentView(R.layout.activity_settings);
 
         app = (FlappyLoveApplication) getApplication();
         scoreManager = new ScoreManager(this);
 
         lovenseSwitch = findViewById(R.id.switchLovense);
-        Button backButton = findViewById(R.id.btnBack);
         TextView infoText = findViewById(R.id.tvLovenseInfo);
         statusText = findViewById(R.id.tvConnectionStatus);
         connectButton = findViewById(R.id.btnConnect);
@@ -113,7 +116,37 @@ public class SettingsActivity extends AppCompatActivity {
             }
         });
 
-        backButton.setOnClickListener(v -> finish());
+        findViewById(R.id.btnClose).setOnClickListener(v -> finish());
+
+        Switch ghostSwitch = findViewById(R.id.switchGhostMode);
+        Switch immortalSwitch = findViewById(R.id.switchImmortalMode);
+        Switch slowMotionSwitch = findViewById(R.id.switchSlowMotion);
+        Switch speedModeSwitch = findViewById(R.id.switchSpeedMode);
+
+        ghostSwitch.setChecked(scoreManager.isGhostMode());
+        immortalSwitch.setChecked(scoreManager.isImmortalMode());
+        slowMotionSwitch.setChecked(scoreManager.isSlowMotion());
+        speedModeSwitch.setChecked(scoreManager.isSpeedMode());
+
+        ghostSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
+            scoreManager.setGhostMode(isChecked));
+
+        immortalSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
+            scoreManager.setImmortalMode(isChecked));
+
+        slowMotionSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            scoreManager.setSlowMotion(isChecked);
+            if (isChecked && speedModeSwitch.isChecked()) {
+                speedModeSwitch.setChecked(false);
+            }
+        });
+
+        speedModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            scoreManager.setSpeedMode(isChecked);
+            if (isChecked && slowMotionSwitch.isChecked()) {
+                slowMotionSwitch.setChecked(false);
+            }
+        });
 
         updateConnectionStatus();
         startStatusUpdateTimer();
@@ -135,7 +168,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void enableLovenseMode() {
         scoreManager.setLovenseEnabled(true);
-        updateConnectionStatus();
+        connectButton.setEnabled(false);
         connectToDevice();
     }
 
@@ -171,6 +204,12 @@ public class SettingsActivity extends AppCompatActivity {
             connectButton.setEnabled(false);
             disconnectButton.setEnabled(true);
             testButton.setEnabled(true);
+        } else if (controller != null && controller.isSearching()) {
+            statusText.setText("Status: Searching...");
+            statusText.setTextColor(0xFFFF9800);
+            connectButton.setEnabled(false);
+            disconnectButton.setEnabled(false);
+            testButton.setEnabled(false);
         } else {
             statusText.setText("Status: Disconnected");
             statusText.setTextColor(0xFFF44336);
@@ -224,8 +263,21 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        hideSystemBars();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         statusHandler.removeCallbacksAndMessages(null);
+    }
+
+    private void hideSystemBars() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        controller.hide(WindowInsetsCompat.Type.systemBars());
+        controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
     }
 }
