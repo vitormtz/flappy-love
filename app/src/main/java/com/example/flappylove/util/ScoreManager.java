@@ -36,12 +36,12 @@ public class ScoreManager {
         prefs.edit().putBoolean(Constants.KEY_GHOST_MODE, enabled).apply();
     }
 
-    public boolean isImmortalMode() {
-        return prefs.getBoolean(Constants.KEY_IMMORTAL_MODE, false);
+    public boolean isGodMode() {
+        return prefs.getBoolean(Constants.KEY_GOD_MODE, false);
     }
 
-    public void setImmortalMode(boolean enabled) {
-        prefs.edit().putBoolean(Constants.KEY_IMMORTAL_MODE, enabled).apply();
+    public void setGodMode(boolean enabled) {
+        prefs.edit().putBoolean(Constants.KEY_GOD_MODE, enabled).apply();
     }
 
     public boolean isSlowMotion() {
@@ -58,5 +58,13 @@ public class ScoreManager {
 
     public void setSpeedMode(boolean enabled) {
         prefs.edit().putBoolean(Constants.KEY_SPEED_MODE, enabled).apply();
+    }
+
+    public boolean isHoldMode() {
+        return prefs.getBoolean(Constants.KEY_HOLD_MODE, false);
+    }
+
+    public void setHoldMode(boolean enabled) {
+        prefs.edit().putBoolean(Constants.KEY_HOLD_MODE, enabled).apply();
     }
 }
