@@ -119,20 +119,22 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.btnClose).setOnClickListener(v -> finish());
 
         Switch ghostSwitch = findViewById(R.id.switchGhostMode);
-        Switch immortalSwitch = findViewById(R.id.switchImmortalMode);
+        Switch godModeSwitch = findViewById(R.id.switchGodMode);
         Switch slowMotionSwitch = findViewById(R.id.switchSlowMotion);
         Switch speedModeSwitch = findViewById(R.id.switchSpeedMode);
+        Switch holdModeSwitch = findViewById(R.id.switchHoldMode);
 
         ghostSwitch.setChecked(scoreManager.isGhostMode());
-        immortalSwitch.setChecked(scoreManager.isImmortalMode());
+        godModeSwitch.setChecked(scoreManager.isGodMode());
         slowMotionSwitch.setChecked(scoreManager.isSlowMotion());
         speedModeSwitch.setChecked(scoreManager.isSpeedMode());
+        holdModeSwitch.setChecked(scoreManager.isHoldMode());
 
         ghostSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
             scoreManager.setGhostMode(isChecked));
 
-        immortalSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
-            scoreManager.setImmortalMode(isChecked));
+        godModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
+            scoreManager.setGodMode(isChecked));
 
         slowMotionSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             scoreManager.setSlowMotion(isChecked);
@@ -147,6 +149,9 @@ public class SettingsActivity extends AppCompatActivity {
                 slowMotionSwitch.setChecked(false);
             }
         });
+
+        holdModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
+            scoreManager.setHoldMode(isChecked));
 
         updateConnectionStatus();
         startStatusUpdateTimer();
