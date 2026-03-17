@@ -27,4 +27,36 @@ public class ScoreManager {
     public void setLovenseEnabled(boolean enabled) {
         prefs.edit().putBoolean(Constants.KEY_LOVENSE_ENABLED, enabled).apply();
     }
+
+    public boolean isGhostMode() {
+        return prefs.getBoolean(Constants.KEY_GHOST_MODE, false);
+    }
+
+    public void setGhostMode(boolean enabled) {
+        prefs.edit().putBoolean(Constants.KEY_GHOST_MODE, enabled).apply();
+    }
+
+    public boolean isImmortalMode() {
+        return prefs.getBoolean(Constants.KEY_IMMORTAL_MODE, false);
+    }
+
+    public void setImmortalMode(boolean enabled) {
+        prefs.edit().putBoolean(Constants.KEY_IMMORTAL_MODE, enabled).apply();
+    }
+
+    public boolean isSlowMotion() {
+        return prefs.getBoolean(Constants.KEY_SLOW_MOTION, false);
+    }
+
+    public void setSlowMotion(boolean enabled) {
+        prefs.edit().putBoolean(Constants.KEY_SLOW_MOTION, enabled).apply();
+    }
+
+    public boolean isSpeedMode() {
+        return prefs.getBoolean(Constants.KEY_SPEED_MODE, false);
+    }
+
+    public void setSpeedMode(boolean enabled) {
+        prefs.edit().putBoolean(Constants.KEY_SPEED_MODE, enabled).apply();
+    }
 }

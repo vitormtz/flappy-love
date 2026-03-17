@@ -24,4 +24,8 @@ public class Constants {
     public static final String PREFS_NAME = "FlappyLovePrefs";
     public static final String KEY_HIGH_SCORE = "highScore";
     public static final String KEY_LOVENSE_ENABLED = "lovenseEnabled";
+    public static final String KEY_GHOST_MODE = "ghostMode";
+    public static final String KEY_IMMORTAL_MODE = "immortalMode";
+    public static final String KEY_SLOW_MOTION = "slowMotion";
+    public static final String KEY_SPEED_MODE = "speedMode";
 }
