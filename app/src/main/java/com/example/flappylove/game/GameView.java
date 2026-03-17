@@ -38,9 +38,14 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private Context context;
 
     private boolean ghostMode;
-    private boolean immortalMode;
+    private boolean godMode;
     private boolean slowMotion;
     private boolean speedMode;
+    private boolean holdMode;
+    private boolean touchActive;
+    private float lastTouchY;
+
+    private float lastGapY = -1;
 
     private int currentVibrationLevel;
     private Paint barBgPaint;
@@ -67,14 +72,15 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private Paint closeBtnPaint;
 
     private static final float PANEL_WIDTH = 700f;
-    private static final float PANEL_HEIGHT = 750f;
+    private static final float PANEL_HEIGHT = 850f;
     private static final float TOGGLE_SIZE = 50f;
     private static final float ROW_HEIGHT = 100f;
 
     private RectF ghostToggleBounds;
-    private RectF immortalToggleBounds;
+    private RectF godModeToggleBounds;
     private RectF slowMotionToggleBounds;
     private RectF speedModeToggleBounds;
+    private RectF holdModeToggleBounds;
     private RectF closePanelBounds;
     private RectF exitBounds;
 
@@ -115,9 +121,11 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         scoreManager = new ScoreManager(context);
 
         ghostMode = scoreManager.isGhostMode();
-        immortalMode = scoreManager.isImmortalMode();
+        godMode = scoreManager.isGodMode();
         slowMotion = scoreManager.isSlowMotion();
         speedMode = scoreManager.isSpeedMode();
+        holdMode = scoreManager.isHoldMode();
+        touchActive = false;
 
         currentVibrationLevel = 0;
 
@@ -180,9 +188,10 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         closeBtnPaint.setAntiAlias(true);
 
         ghostToggleBounds = new RectF();
-        immortalToggleBounds = new RectF();
+        godModeToggleBounds = new RectF();
         slowMotionToggleBounds = new RectF();
         speedModeToggleBounds = new RectF();
+        holdModeToggleBounds = new RectF();
         closePanelBounds = new RectF();
         exitBounds = new RectF();
     }
@@ -193,10 +202,11 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            float x = event.getX();
-            float y = event.getY();
+        float x = event.getX();
+        float y = event.getY();
+        int action = event.getAction();
 
+        if (action == MotionEvent.ACTION_DOWN) {
             if (paused) {
                 handlePanelTouch(x, y);
                 return true;
@@ -212,11 +222,31 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
             if (gameOver) {
                 resetGame();
+                return true;
+            }
+
+            if (holdMode) {
+                touchActive = true;
+                lastTouchY = y;
             } else {
                 bird.jump();
             }
             return true;
         }
+
+        if (holdMode && !paused && !gameOver) {
+            if (action == MotionEvent.ACTION_MOVE) {
+                float deltaY = y - lastTouchY;
+                lastTouchY = y;
+                bird.clampY(bird.getY() + deltaY);
+                return true;
+            }
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                touchActive = false;
+                return true;
+            }
+        }
+
         return super.onTouchEvent(event);
     }
 
@@ -236,9 +266,9 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             scoreManager.setGhostMode(ghostMode);
             return;
         }
-        if (immortalToggleBounds.contains(x, y)) {
-            immortalMode = !immortalMode;
-            scoreManager.setImmortalMode(immortalMode);
+        if (godModeToggleBounds.contains(x, y)) {
+            godMode = !godMode;
+            scoreManager.setGodMode(godMode);
             return;
         }
         if (slowMotionToggleBounds.contains(x, y)) {
@@ -257,6 +287,11 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                 slowMotion = false;
                 scoreManager.setSlowMotion(false);
             }
+            return;
+        }
+        if (holdModeToggleBounds.contains(x, y)) {
+            holdMode = !holdMode;
+            scoreManager.setHoldMode(holdMode);
         }
     }
 
@@ -267,9 +302,11 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         if (slowMotion) speedMultiplier = 0.5f;
         if (speedMode) speedMultiplier = 2f;
 
-        bird.update(deltaTime);
+        if (!holdMode) {
+            bird.update(deltaTime);
+        }
 
-        if (!immortalMode) {
+        if (!godMode) {
             if (bird.getY() - Constants.BIRD_SIZE / 2 <= 0 ||
                 bird.getY() + Constants.BIRD_SIZE / 2 >= Constants.SCREEN_HEIGHT - Constants.FLOOR_HEIGHT) {
                 triggerGameOver();
@@ -291,11 +328,11 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             pipe.update(deltaTime * speedMultiplier);
 
             if (pipe.collidesWith(bird.getBounds())) {
-                if (!ghostMode && !immortalMode) {
+                if (!ghostMode && !godMode) {
                     triggerGameOver();
                     return;
                 }
-                if (immortalMode && !ghostMode) {
+                if (godMode && !ghostMode) {
                     if (pipe.collidesWithTop(bird.getBounds())) {
                         bird.clampY(pipe.getGapTopY() + Constants.BIRD_SIZE / 2);
                     } else if (pipe.collidesWithBottom(bird.getBounds())) {
@@ -396,11 +433,12 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         float toggleX = panelX + PANEL_WIDTH - 40 - TOGGLE_SIZE;
 
         drawModeRow(canvas, leftX, startY, toggleX, "Ghost Mode", "Pass through pipes", ghostMode, ghostToggleBounds);
-        drawModeRow(canvas, leftX, startY + ROW_HEIGHT, toggleX, "Immortal Mode", "Full invincibility", immortalMode, immortalToggleBounds);
+        drawModeRow(canvas, leftX, startY + ROW_HEIGHT, toggleX, "God Mode", "Full invincibility", godMode, godModeToggleBounds);
         drawModeRow(canvas, leftX, startY + ROW_HEIGHT * 2, toggleX, "Slow Motion", "Half pipe speed", slowMotion, slowMotionToggleBounds);
         drawModeRow(canvas, leftX, startY + ROW_HEIGHT * 3, toggleX, "Speed Mode", "Faster pipes, closer spawn", speedMode, speedModeToggleBounds);
+        drawModeRow(canvas, leftX, startY + ROW_HEIGHT * 4, toggleX, "Hold Mode", "Hold and drag to control bird", holdMode, holdModeToggleBounds);
 
-        float exitY = startY + ROW_HEIGHT * 4 + 40;
+        float exitY = startY + ROW_HEIGHT * 5 + 40;
         Paint exitPaint = new Paint();
         exitPaint.setColor(0xFFF44336);
         exitPaint.setAntiAlias(true);
@@ -473,7 +511,18 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private void spawnPipe() {
         float minY = Constants.PIPE_MIN_HEIGHT + Constants.PIPE_GAP / 2;
         float maxY = Constants.SCREEN_HEIGHT - Constants.FLOOR_HEIGHT - Constants.PIPE_GAP / 2 - Constants.PIPE_MIN_HEIGHT;
-        float gapY = minY + random.nextFloat() * (maxY - minY);
+
+        float gapY;
+        if (speedMode && lastGapY >= 0) {
+            float maxGapDelta = 200f;
+            float constrainedMin = Math.max(minY, lastGapY - maxGapDelta);
+            float constrainedMax = Math.min(maxY, lastGapY + maxGapDelta);
+            gapY = constrainedMin + random.nextFloat() * (constrainedMax - constrainedMin);
+        } else {
+            gapY = minY + random.nextFloat() * (maxY - minY);
+        }
+
+        lastGapY = gapY;
         pipes.add(new Pipe(Constants.SCREEN_WIDTH, gapY));
         nextPipeX = Constants.SCREEN_WIDTH;
     }
@@ -493,6 +542,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         score = 0;
         gameOver = false;
         currentVibrationLevel = 0;
+        lastGapY = -1;
     }
 
     @Override
