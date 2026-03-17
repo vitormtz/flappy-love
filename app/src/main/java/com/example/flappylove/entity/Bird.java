@@ -49,6 +49,12 @@ public class Bird {
         return y;
     }
 
+    public void clampY(float value) {
+        this.y = value;
+        this.velocity = 0;
+        updateBounds();
+    }
+
     public void reset(float startX, float startY) {
         this.x = startX;
         this.y = startY;

@@ -48,6 +48,22 @@ public class Pipe {
         return RectF.intersects(birdBounds, topBounds) || RectF.intersects(birdBounds, bottomBounds);
     }
 
+    public boolean collidesWithTop(RectF birdBounds) {
+        return RectF.intersects(birdBounds, topBounds);
+    }
+
+    public boolean collidesWithBottom(RectF birdBounds) {
+        return RectF.intersects(birdBounds, bottomBounds);
+    }
+
+    public float getGapTopY() {
+        return gapY - Constants.PIPE_GAP / 2;
+    }
+
+    public float getGapBottomY() {
+        return gapY + Constants.PIPE_GAP / 2;
+    }
+
     public boolean isPassed(float birdX) {
         return !scored && x + Constants.PIPE_WIDTH < birdX;
     }
