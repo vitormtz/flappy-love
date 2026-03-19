@@ -67,4 +67,12 @@ public class ScoreManager {
     public void setHoldMode(boolean enabled) {
         prefs.edit().putBoolean(Constants.KEY_HOLD_MODE, enabled).apply();
     }
+
+    public boolean isLoopMode() {
+        return prefs.getBoolean(Constants.KEY_LOOP_MODE, false);
+    }
+
+    public void setLoopMode(boolean enabled) {
+        prefs.edit().putBoolean(Constants.KEY_LOOP_MODE, enabled).apply();
+    }
 }

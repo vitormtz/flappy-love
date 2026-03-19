@@ -42,8 +42,13 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private boolean slowMotion;
     private boolean speedMode;
     private boolean holdMode;
+    private boolean loopMode;
     private boolean touchActive;
     private float lastTouchY;
+
+    private List<Float> loopRecording = new ArrayList<>();
+    private int loopPlaybackIndex;
+    private boolean loopPlaying;
 
     private float lastGapY = -1;
 
@@ -58,6 +63,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private static final float BAR_MARGIN_RIGHT = 30f;
     private static final float BAR_MARGIN_TOP = 200f;
     private static final int MAX_VIBRATION_LEVEL = 20;
+    private static final int MAX_LOOP_FRAMES = 36000;
 
     private static final float GEAR_SIZE = 80f;
     private static final float GEAR_MARGIN = 30f;
@@ -72,7 +78,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private Paint closeBtnPaint;
 
     private static final float PANEL_WIDTH = 700f;
-    private static final float PANEL_HEIGHT = 850f;
+    private static final float PANEL_HEIGHT = 950f;
     private static final float TOGGLE_SIZE = 50f;
     private static final float ROW_HEIGHT = 100f;
 
@@ -81,6 +87,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private RectF slowMotionToggleBounds;
     private RectF speedModeToggleBounds;
     private RectF holdModeToggleBounds;
+    private RectF loopModeToggleBounds;
     private RectF closePanelBounds;
     private RectF exitBounds;
 
@@ -125,7 +132,10 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         slowMotion = scoreManager.isSlowMotion();
         speedMode = scoreManager.isSpeedMode();
         holdMode = scoreManager.isHoldMode();
+        loopMode = scoreManager.isLoopMode();
         touchActive = false;
+        loopPlaying = false;
+        loopPlaybackIndex = 0;
 
         currentVibrationLevel = 0;
 
@@ -192,6 +202,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         slowMotionToggleBounds = new RectF();
         speedModeToggleBounds = new RectF();
         holdModeToggleBounds = new RectF();
+        loopModeToggleBounds = new RectF();
         closePanelBounds = new RectF();
         exitBounds = new RectF();
     }
@@ -228,6 +239,10 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             if (holdMode) {
                 touchActive = true;
                 lastTouchY = y;
+                if (loopMode) {
+                    loopRecording.clear();
+                    loopPlaying = false;
+                }
             } else {
                 bird.jump();
             }
@@ -239,10 +254,17 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                 float deltaY = y - lastTouchY;
                 lastTouchY = y;
                 bird.clampY(bird.getY() + deltaY);
+                if (loopMode && loopRecording.size() < MAX_LOOP_FRAMES) {
+                    loopRecording.add(bird.getY());
+                }
                 return true;
             }
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
                 touchActive = false;
+                if (loopMode && loopRecording.size() > 1) {
+                    loopPlaying = true;
+                    loopPlaybackIndex = 0;
+                }
                 return true;
             }
         }
@@ -292,6 +314,25 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         if (holdModeToggleBounds.contains(x, y)) {
             holdMode = !holdMode;
             scoreManager.setHoldMode(holdMode);
+            if (!holdMode && loopMode) {
+                loopMode = false;
+                scoreManager.setLoopMode(false);
+                loopPlaying = false;
+                loopRecording.clear();
+            }
+            return;
+        }
+        if (loopModeToggleBounds.contains(x, y)) {
+            loopMode = !loopMode;
+            scoreManager.setLoopMode(loopMode);
+            if (loopMode && !holdMode) {
+                holdMode = true;
+                scoreManager.setHoldMode(true);
+            }
+            if (!loopMode) {
+                loopPlaying = false;
+                loopRecording.clear();
+            }
         }
     }
 
@@ -304,6 +345,9 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
         if (!holdMode) {
             bird.update(deltaTime);
+        } else if (loopMode && loopPlaying && !touchActive && !loopRecording.isEmpty()) {
+            bird.clampY(loopRecording.get(loopPlaybackIndex));
+            loopPlaybackIndex = (loopPlaybackIndex + 1) % loopRecording.size();
         }
 
         if (!godMode) {
@@ -437,8 +481,9 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         drawModeRow(canvas, leftX, startY + ROW_HEIGHT * 2, toggleX, "Slow Motion", "Half pipe speed", slowMotion, slowMotionToggleBounds);
         drawModeRow(canvas, leftX, startY + ROW_HEIGHT * 3, toggleX, "Speed Mode", "Faster pipes, closer spawn", speedMode, speedModeToggleBounds);
         drawModeRow(canvas, leftX, startY + ROW_HEIGHT * 4, toggleX, "Hold Mode", "Hold and drag to control bird", holdMode, holdModeToggleBounds);
+        drawModeRow(canvas, leftX, startY + ROW_HEIGHT * 5, toggleX, "Loop Mode", "Repeats last gesture in a loop", loopMode, loopModeToggleBounds);
 
-        float exitY = startY + ROW_HEIGHT * 5 + 40;
+        float exitY = startY + ROW_HEIGHT * 6 + 40;
         Paint exitPaint = new Paint();
         exitPaint.setColor(0xFFF44336);
         exitPaint.setAntiAlias(true);
@@ -543,6 +588,9 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         gameOver = false;
         currentVibrationLevel = 0;
         lastGapY = -1;
+        loopRecording.clear();
+        loopPlaying = false;
+        loopPlaybackIndex = 0;
     }
 
     @Override

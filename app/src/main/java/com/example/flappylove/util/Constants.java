@@ -29,4 +29,5 @@ public class Constants {
     public static final String KEY_SLOW_MOTION = "slowMotion";
     public static final String KEY_SPEED_MODE = "speedMode";
     public static final String KEY_HOLD_MODE = "holdMode";
+    public static final String KEY_LOOP_MODE = "loopMode";
 }
