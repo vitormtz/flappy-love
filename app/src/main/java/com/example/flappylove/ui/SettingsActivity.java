@@ -4,11 +4,16 @@ import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -27,8 +32,11 @@ import com.example.flappylove.R;
 import com.example.flappylove.device.DeviceController;
 import com.example.flappylove.device.LovenseController;
 import com.example.flappylove.device.NoOpController;
+import com.example.flappylove.device.ToyInfo;
 import com.example.flappylove.util.ScoreManager;
 import com.lovense.sdklibrary.Lovense;
+
+import java.util.List;
 
 public class SettingsActivity extends AppCompatActivity {
     private static final int BLUETOOTH_PERMISSION_REQUEST = 100;
@@ -36,8 +44,7 @@ public class SettingsActivity extends AppCompatActivity {
     private Switch lovenseSwitch;
     private TextView statusText;
     private Button connectButton;
-    private Button disconnectButton;
-    private Button testButton;
+    private LinearLayout toyListContainer;
     private Handler statusHandler = new Handler(Looper.getMainLooper());
 
     private FlappyLoveApplication app;
@@ -62,15 +69,9 @@ public class SettingsActivity extends AppCompatActivity {
         scoreManager = new ScoreManager(this);
 
         lovenseSwitch = findViewById(R.id.switchLovense);
-        TextView infoText = findViewById(R.id.tvLovenseInfo);
         statusText = findViewById(R.id.tvConnectionStatus);
         connectButton = findViewById(R.id.btnConnect);
-        disconnectButton = findViewById(R.id.btnDisconnect);
-        testButton = findViewById(R.id.btnTestVibration);
-
-        infoText.setText("Enable Lovense Mode to connect to a Lovense Lush 3 device. " +
-                        "The device will respond to game events with haptic feedback.\n\n" +
-                        "The vibration intensity changes based on the bird's position relative to the pipe gap.");
+        toyListContainer = findViewById(R.id.toyListContainer);
 
         lovenseSwitch.setChecked(scoreManager.isLovenseEnabled());
 
@@ -97,25 +98,6 @@ public class SettingsActivity extends AppCompatActivity {
             }
         });
 
-        disconnectButton.setOnClickListener(v -> {
-            DeviceController controller = app.getDeviceController();
-            if (controller != null) {
-                controller.disconnect();
-                Toast.makeText(this, "Disconnecting...", Toast.LENGTH_SHORT).show();
-                statusHandler.postDelayed(this::updateConnectionStatus, 1000);
-            }
-        });
-
-        testButton.setOnClickListener(v -> {
-            DeviceController controller = app.getDeviceController();
-            if (controller != null && controller.isConnected()) {
-                Toast.makeText(this, "Testing vibration...", Toast.LENGTH_SHORT).show();
-                controller.vibrate(15, 500);
-            } else {
-                Toast.makeText(this, "Please connect to device first", Toast.LENGTH_SHORT).show();
-            }
-        });
-
         findViewById(R.id.btnClose).setOnClickListener(v -> finish());
 
         Switch ghostSwitch = findViewById(R.id.switchGhostMode);
@@ -123,12 +105,15 @@ public class SettingsActivity extends AppCompatActivity {
         Switch slowMotionSwitch = findViewById(R.id.switchSlowMotion);
         Switch speedModeSwitch = findViewById(R.id.switchSpeedMode);
         Switch holdModeSwitch = findViewById(R.id.switchHoldMode);
+        Switch loopModeSwitch = findViewById(R.id.switchLoopMode);
 
         ghostSwitch.setChecked(scoreManager.isGhostMode());
         godModeSwitch.setChecked(scoreManager.isGodMode());
         slowMotionSwitch.setChecked(scoreManager.isSlowMotion());
         speedModeSwitch.setChecked(scoreManager.isSpeedMode());
         holdModeSwitch.setChecked(scoreManager.isHoldMode());
+        loopModeSwitch.setChecked(scoreManager.isLoopMode());
+        loopModeSwitch.setEnabled(scoreManager.isHoldMode());
 
         ghostSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
             scoreManager.setGhostMode(isChecked));
@@ -150,8 +135,20 @@ public class SettingsActivity extends AppCompatActivity {
             }
         });
 
-        holdModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
-            scoreManager.setHoldMode(isChecked));
+        holdModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            scoreManager.setHoldMode(isChecked);
+            loopModeSwitch.setEnabled(isChecked);
+            if (!isChecked && loopModeSwitch.isChecked()) {
+                loopModeSwitch.setChecked(false);
+            }
+        });
+
+        loopModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            scoreManager.setLoopMode(isChecked);
+            if (isChecked && !holdModeSwitch.isChecked()) {
+                holdModeSwitch.setChecked(true);
+            }
+        });
 
         updateConnectionStatus();
         startStatusUpdateTimer();
@@ -204,24 +201,99 @@ public class SettingsActivity extends AppCompatActivity {
     private void updateConnectionStatus() {
         DeviceController controller = app.getDeviceController();
         if (controller != null && controller.isConnected()) {
-            statusText.setText("Status: Connected");
+            List<ToyInfo> toys = controller.getConnectedToys();
+            statusText.setText("Status: Connected (" + toys.size() + " device" + (toys.size() != 1 ? "s" : "") + ")");
             statusText.setTextColor(0xFF4CAF50);
-            connectButton.setEnabled(false);
-            disconnectButton.setEnabled(true);
-            testButton.setEnabled(true);
+            connectButton.setEnabled(true);
+            buildToyList(controller, toys);
         } else if (controller != null && controller.isSearching()) {
             statusText.setText("Status: Searching...");
             statusText.setTextColor(0xFFFF9800);
             connectButton.setEnabled(false);
-            disconnectButton.setEnabled(false);
-            testButton.setEnabled(false);
+            toyListContainer.removeAllViews();
         } else {
             statusText.setText("Status: Disconnected");
             statusText.setTextColor(0xFFF44336);
             connectButton.setEnabled(scoreManager.isLovenseEnabled());
-            disconnectButton.setEnabled(false);
-            testButton.setEnabled(false);
+            toyListContainer.removeAllViews();
         }
+    }
+
+    private void buildToyList(DeviceController controller, List<ToyInfo> toys) {
+        toyListContainer.removeAllViews();
+
+        for (ToyInfo toy : toys) {
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setBackgroundColor(Color.WHITE);
+            int pad = dpToPx(16);
+            card.setPadding(pad, pad, pad, pad);
+            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            cardParams.bottomMargin = dpToPx(12);
+            card.setLayoutParams(cardParams);
+
+            TextView nameText = new TextView(this);
+            nameText.setText(toy.name != null ? toy.name : "Unknown Device");
+            nameText.setTextSize(18);
+            nameText.setTextColor(0xFF000000);
+            nameText.setTypeface(null, Typeface.BOLD);
+            card.addView(nameText);
+
+            if (toy.battery >= 0) {
+                TextView batteryText = new TextView(this);
+                batteryText.setText("Battery: " + toy.battery + "%");
+                batteryText.setTextSize(14);
+                batteryText.setTextColor(0xFF666666);
+                batteryText.setPadding(0, dpToPx(4), 0, 0);
+                card.addView(batteryText);
+            }
+
+            LinearLayout btnRow = new LinearLayout(this);
+            btnRow.setOrientation(LinearLayout.HORIZONTAL);
+            btnRow.setGravity(Gravity.END);
+            LinearLayout.LayoutParams btnRowParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            btnRowParams.topMargin = dpToPx(12);
+            btnRow.setLayoutParams(btnRowParams);
+
+            Button testBtn = new Button(this);
+            testBtn.setText("TEST");
+            testBtn.setTextSize(13);
+            testBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF2196F3));
+            testBtn.setTextColor(Color.WHITE);
+            LinearLayout.LayoutParams testParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dpToPx(40));
+            testParams.rightMargin = dpToPx(8);
+            testBtn.setLayoutParams(testParams);
+            testBtn.setOnClickListener(v -> {
+                controller.vibrateToy(toy.id, 15, 500);
+                Toast.makeText(this, "Testing " + toy.name + "...", Toast.LENGTH_SHORT).show();
+            });
+            btnRow.addView(testBtn);
+
+            Button disconnectBtn = new Button(this);
+            disconnectBtn.setText("DISCONNECT");
+            disconnectBtn.setTextSize(13);
+            disconnectBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFF44336));
+            disconnectBtn.setTextColor(Color.WHITE);
+            LinearLayout.LayoutParams discParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dpToPx(40));
+            disconnectBtn.setLayoutParams(discParams);
+            disconnectBtn.setOnClickListener(v -> {
+                controller.disconnectToy(toy.id);
+                Toast.makeText(this, "Disconnecting " + toy.name + "...", Toast.LENGTH_SHORT).show();
+                statusHandler.postDelayed(this::updateConnectionStatus, 500);
+            });
+            btnRow.addView(disconnectBtn);
+
+            card.addView(btnRow);
+            toyListContainer.addView(card);
+        }
+    }
+
+    private int dpToPx(int dp) {
+        return Math.round(dp * getResources().getDisplayMetrics().density);
     }
 
     private void startStatusUpdateTimer() {
