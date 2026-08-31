@@ -53,3 +53,29 @@ local.properties
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# --- Extras: segurança e build (adicionados) ---
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+secrets.properties
+key.properties
+
+*.apk
+*.aab
+*.hprof
+
+.kotlin/
+
+*.tmp
+*.bak
+*~
+
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Dumps de debug e docs de referência baixadas (não fazem parte do projeto)
+display.txt
+Lovense Android SDK for Android app development.pdf
